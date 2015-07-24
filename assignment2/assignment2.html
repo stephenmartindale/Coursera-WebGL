@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8" >
+<title>WebGL Assignment 2</title>
+<style type="text/css">
+canvas {
+    border: 1px dotted #686868;
+    cursor: crosshair;
+}
+</style>
+<script id="vertex-shader" type="x-shader/x-vertex">
+attribute vec4 vPosition;
+
+void main()
+{
+    gl_Position = vPosition;
+}
+</script>
+<script id="fragment-shader" type="x-shader/x-fragment">
+precision mediump float;
+uniform vec4 lineColour;
+
+void main()
+{
+    gl_FragColor = lineColour;
+}
+</script>
+<script type="text/javascript" src="../common/jquery-2.1.4.min.js"></script>
+<script type="text/javascript" src="../angelCommon/webgl-utils.js"></script>
+<script type="text/javascript" src="../angelCommon/initShaders.js"></script>
+<script type="text/javascript" src="../angelCommon/MV.js"></script>
+<script type="text/javascript" src="assignment2.js"></script>
+</head>
+<body>
+    <canvas id="gl-canvas" width="512" height="512">
+    Your browser does not support the HTML5 canvas element.
+    </canvas>
+    <table>
+        <tr>
+            <td>Red:</td>
+            <td><input id="redRange" type="range" min="0" max="255" step="1" value="64" /></td>
+        </tr>
+        <tr>
+            <td>Green:</td>
+            <td><input id="greenRange" type="range" min="0" max="255" step="1" value="64" /></td>
+        </tr>
+        <tr>
+            <td>Blue:</td>
+            <td><input id="blueRange" type="range" min="0" max="255" step="1" value="64" /></td>
+        </tr>
+    </table>
+</body>
+</html>
