@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8" >
+<title>WebGL Assignment 3</title>
+<link rel="stylesheet" href="../common/jquery-ui.min.css" type="text/css" />
+<link rel="stylesheet" href="assignment3.css" type="text/css" />
+<script id="vertex-shader" type="x-shader/x-vertex">
+attribute  vec4 vPosition;
+
+uniform mat4 modelViewMatrix;
+uniform mat4 projectionMatrix;
+
+uniform float instanceScale;
+uniform vec3 instanceRotation;
+uniform vec3 instanceDisplacement;
+
+void main()
+{
+    // Compute the Scale factor of the Instance Transformation
+    // (ALL Matrices specified in column-major order.)
+    mat4 scale = mat4( instanceScale,  0.0,  0.0,  0.0,
+                       0.0,  instanceScale,  0.0,  0.0,
+                       0.0,  0.0,  instanceScale,  0.0,
+                       0.0,  0.0,  0.0,  1.0 );
+
+    // Compute the Rotation factor of the Instance Transformation
+    vec3 instanceRotationCosine = cos(instanceRotation);
+    vec3 instanceRotationSine = sin(instanceRotation);
+
+    mat4 rx = mat4( 1.0,  0.0,  0.0, 0.0,
+                    0.0,  instanceRotationCosine.x,  instanceRotationSine.x, 0.0,
+                    0.0, -instanceRotationSine.x,  instanceRotationCosine.x, 0.0,
+                    0.0,  0.0,  0.0, 1.0 );
+
+    mat4 ry = mat4( instanceRotationCosine.y, 0.0, -instanceRotationSine.y, 0.0,
+                    0.0, 1.0,  0.0, 0.0,
+                    instanceRotationSine.y, 0.0,  instanceRotationCosine.y, 0.0,
+                    0.0, 0.0,  0.0, 1.0 );
+
+
+    mat4 rz = mat4( instanceRotationCosine.z, -instanceRotationSine.z, 0.0, 0.0,
+                    instanceRotationSine.z,  instanceRotationCosine.z, 0.0, 0.0,
+                    0.0,  0.0, 1.0, 0.0,
+                    0.0,  0.0, 0.0, 1.0 );
+
+    // Compute the Displacement factor of the Instance Transformation
+    // (ALL Matrices specified in column-major order.)
+    mat4 translation = mat4( 1.0,  0.0,  0.0,  0.0,
+                             0.0,  1.0,  0.0,  0.0,
+                             0.0,  0.0,  1.0,  0.0,
+                             instanceDisplacement.x,  instanceDisplacement.y,  instanceDisplacement.z,  1.0 );
+
+    // Apply the entire Vertex Transformation
+    // (Last specified, first applied.)
+    gl_Position = projectionMatrix
+                * modelViewMatrix
+                * translation
+                * rz * ry * rx
+                * scale
+                * vPosition;
+}
+</script>
+<script id="fragment-shader" type="x-shader/x-fragment">
+precision mediump float;
+
+uniform vec4 fColor;
+
+void
+main()
+{
+    gl_FragColor = fColor;
+}
+</script>
+<script type="text/javascript" src="../common/jquery-2.1.4.min.js"></script>
+<script type="text/javascript" src="../common/jquery-ui.min.js"></script>
+<script type="text/javascript" src="../angelCommon/webgl-utils.js"></script>
+<script type="text/javascript" src="../angelCommon/initShaders.js"></script>
+<script type="text/javascript" src="../angelCommon/MV.js"></script>
+<script type="text/javascript" src="assignment3.js"></script>
+</head>
+<body>
+    <canvas id="gl-canvas" width="512" height="512">
+    Your browser does not support the HTML5 canvas element.
+    </canvas>
+    <div id="userControls">
+        <p>Meshes:</p>
+        <table>
+            <tr>
+                <td><button id="addSphereButton">Sphere</button></td>
+                <td><button id="addConeButton">Cone</button></td>
+                <td><button id="addCylinderButton">Cylinder</button></td>
+            </tr>
+            <tr>
+                <td><button id="addIcosahedronButton">Icosahedron</button></td>
+                <td><button id="addRadialHatButton">Radial Hat</button></td>
+            </tr>
+        </table>
+
+        <div id="meshManipulation" style="display: none;">
+            <p>Fill Colour:</p>
+            <table>
+                <tr>
+                    <td>R</td>
+                    <td><div id="redRange"></div></td>
+                </tr>
+                <tr>
+                    <td>G</td>
+                    <td><div id="greenRange"></div></td>
+                </tr>
+                <tr>
+                    <td>B</td>
+                    <td><div id="blueRange"></div></td>
+                </tr>
+            </table>
+
+            <p>Scale:</p>
+            <table>
+                <tr>
+                    <td>&nbsp;</td>
+                    <!--<td><input id="scaleRange" type="range" min="0.5" max="10" step="0.5" value="1" /></td>-->
+                    <td><div id="scaleRange"></div></td>
+                </tr>
+            </table>
+
+            <p>Rotation:</p>
+            <table>
+                <tr>
+                    <td>X</td>
+                    <td><div id="rotationXRange"></div></td>
+                </tr>
+                <tr>
+                    <td>Y</td>
+                    <td><div id="rotationYRange"></div></td>
+                </tr>
+                <tr>
+                    <td>Z</td>
+                    <td><div id="rotationZRange"></div></td>
+                </tr>
+            </table>
+
+            <p>Position:</p>
+            <table>
+                <tr>
+                    <td>X</td>
+                    <td><div id="displacementXRange"></div></td>
+                </tr>
+                <tr>
+                    <td>Y</td>
+                    <td><div id="displacementYRange"></div></td>
+                </tr>
+                <tr>
+                    <td>Z</td>
+                    <td><div id="displacementZRange"></div></td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <div id="developerComments">
+        <p>Add new meshes to the world using the buttons at the top of the side-bar on the right hand side. The most recently added mesh may be manipulated using the other controls found therein.</p>
+        <p>With those controls, you may change the colour of the mesh, scale it, rotate it and displace it relative to its starting position to achieve the desired geometry.</p>
+        <p><b>Note:</b> While the slider to displace the mesh along the z-axis is implemented and does work, its effect is not visible with the orthographic projection employed in this programme.</p>
+    </div>
+</body>
+</html>
