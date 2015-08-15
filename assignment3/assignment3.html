@@ -155,11 +155,21 @@ main()
                 </tr>
             </table>
         </div>
+
+        <div id="cameraControls">
+            <p>Projection:</p>
+            <table>
+                <tr>
+                    <td><input type="radio" name="projectionRadio" value="orthographic" checked="checked">Orthographic</input></td>
+                    <td><input type="radio" name="projectionRadio" value="perspective">Perspective</input></td>
+                </tr>
+            </table>
+        </div>
     </div>
     <div id="developerComments">
         <p>Add new meshes to the world using the buttons at the top of the side-bar on the right hand side. The most recently added mesh may be manipulated using the other controls found therein.</p>
         <p>With those controls, you may change the colour of the mesh, scale it, rotate it and displace it relative to its starting position to achieve the desired geometry.</p>
-        <p><b>Note:</b> While the slider to displace the mesh along the z-axis is implemented and does work, its effect is not visible with the orthographic projection employed in this programme.</p>
+        <p><b>Note:</b> The effect of the slider that displaces the mesh along the z-axis can only be seen under the perspective projection. Radio buttons are provided to change the projection mode.</p>
     </div>
 </body>
 </html>

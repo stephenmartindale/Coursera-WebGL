@@ -22,6 +22,9 @@ var projectionParameters = {
     top: 2,
     near: -20,
     far: 20,
+    fieldOfView: 45.0,
+    perspectiveNear: 0.3,
+    perspectiveFar: 20.0,
 };
 
 var modelViewMatrix;
@@ -74,6 +77,8 @@ $(function()
     render();
 
     // Attach User-Interface Events
+    $("#cameraControls input:radio[name='projectionRadio']").click(projectionModeChanged);
+
     $("#redRange").slider({ min: 0.0, max: 1.0, step: 0.00390625, value: 1.0, slide: meshManipulationParameterChanged });
     $("#greenRange").slider({ min: 0.0, max: 1.0, step: 0.00390625, value: 1.0, slide: meshManipulationParameterChanged });
     $("#blueRange").slider({ min: 0.0, max: 1.0, step: 0.00390625, value: 1.0, slide: meshManipulationParameterChanged });
@@ -142,6 +147,22 @@ function pushGeometry(geometryObject)
     $("#displacementZRange").slider("option", "value", geometryObject.displacement[2]);
 
     $('#meshManipulation').show();
+}
+
+function projectionModeChanged(e)
+{
+    if ($("#cameraControls input:radio[name='projectionRadio']:checked").val() != "perspective")
+    {
+        projectionMatrix = ortho(projectionParameters.left, projectionParameters.right, projectionParameters.bottom, projectionParameters.top, projectionParameters.near, projectionParameters.far);
+    }
+    else
+    {
+        canvas = $("#gl-canvas")[0];
+        var aspectRatio = canvas.width / canvas.height;
+        projectionMatrix = perspective(projectionParameters.fieldOfView, aspectRatio, projectionParameters.perspectiveNear, projectionParameters.perspectiveFar);
+    }
+
+    gl.uniformMatrix4fv(vs.projectionMatrix, false, flatten(projectionMatrix));
 }
 
 function meshManipulationParameterChanged(e, ui)
