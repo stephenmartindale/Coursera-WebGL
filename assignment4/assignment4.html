@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8" >
+<title>WebGL Assignment 4</title>
+<link rel="stylesheet" href="../common/jquery-ui.min.css" type="text/css" />
+<link rel="stylesheet" href="assignment4.css" type="text/css" />
+<script id="shader-utils" type="x-shader/x-vertex">
+// Computes a Model-View matrix representing a camera at a given eye-point,
+// looking at a specified point, given a vector representing the upward direction.
+mat4 lookAt(vec4 eye, vec4 at, vec3 up)
+{
+    vec3 e = eye.xyz / eye.w;
+    vec3 a = at.xyz / at.w;
+    if (e == a) return mat4(1.0);
+
+    vec3 v = normalize(a - e);
+    vec3 n = normalize(cross(v, up));
+    vec3 u = normalize(cross(n, v));
+
+    return mat4(n.x,          u.x,          -v.x,  0.0,
+                n.y,          u.y,          -v.y,  0.0,
+                n.z,          u.z,          -v.z,  0.0,
+                -dot(n, e), -dot(u, e), dot(v, e), 1.0);
+}
+
+vec4 calculateLighting(float squareDistance, vec3 N, vec3 L, vec3 E,
+                       int blinnSpecular,
+                       vec4 lightAmbient, vec4 lightDiffuse, vec4 lightSpecular, vec3 lightAttenuation,
+                       vec4 materialAmbient, vec4 materialDiffuse, vec4 materialSpecular, float materialShininess)
+{
+    // Phong's Ambient Component
+    vec4 colour = lightAmbient * materialAmbient;
+
+    // Add Diffuse and Specular light if the light source bounces off the surface
+    // (Angle between L and N is not more than 90-degrees)
+    float q = dot(L, N);
+    if (q >= 0.0)
+    {
+        // Distance Fall-Off
+        float attenuationDenominator = max(lightAttenuation[0] + lightAttenuation[1] * sqrt(squareDistance) + lightAttenuation[2] * squareDistance, 1.0);
+
+        // Phong's Diffuse Component
+        colour += (q * (lightDiffuse * materialDiffuse)) / attenuationDenominator;
+
+        if (blinnSpecular == 0)
+        {
+            // Phong's Specular Component
+            vec3 R = normalize(2.0 * q * N - L);
+            colour += (pow(max(dot(E, R), 0.0), materialShininess) * (lightSpecular * materialSpecular)) / attenuationDenominator;
+        }
+        else
+        {
+            // Blinn's Specular Component
+            vec3 H = normalize(L + E);
+            colour += (pow(max(dot(N, H), 0.0), materialShininess) * (lightSpecular * materialSpecular)) / attenuationDenominator;
+        }
+    }
+
+    // Set Reflected Light Alpha
+    colour.a = 1.0;
+    return colour;
+}
+</script>
+<script id="vs-vertex-lighting" type="x-shader/x-vertex">
+attribute vec4 vPosition;
+attribute vec4 vNormal;
+
+varying vec4 fColour;
+
+// Model-View and Projection Parameters
+uniform vec4 viewEye;
+uniform vec4 viewAt;
+uniform mat4 projectionMatrix;
+
+// Instance Parameters
+uniform float instanceScale;
+uniform vec3 instanceRotation;
+uniform vec3 instanceDisplacement;
+
+// Lighting Calculation Options
+uniform int blinnSpecular;
+
+// Light Parameters (Light 1)
+uniform vec4 lightPosition1;
+uniform vec4 lightAmbient1;
+uniform vec4 lightDiffuse1;
+uniform vec4 lightSpecular1;
+uniform vec3 lightAttenuation1;
+
+// Light Parameters (Light 2)
+uniform vec4 lightPosition2;
+uniform vec4 lightAmbient2;
+uniform vec4 lightDiffuse2;
+uniform vec4 lightSpecular2;
+uniform vec3 lightAttenuation2;
+
+// Material Parameters
+uniform vec4 materialAmbient;
+uniform vec4 materialDiffuse;
+uniform vec4 materialSpecular;
+uniform float materialShininess;
+
+// Vertex Shader Entry Point
+void main()
+{
+    // Compute the Scale factor of the Instance Transformation
+    // (ALL Matrices specified in column-major order.)
+    mat4 scale = mat4( instanceScale,  0.0,  0.0,  0.0,
+                       0.0,  instanceScale,  0.0,  0.0,
+                       0.0,  0.0,  instanceScale,  0.0,
+                       0.0,  0.0,  0.0,  1.0 );
+
+    // Compute the Rotation factor of the Instance Transformation
+    vec3 instanceRotationCosine = cos(instanceRotation);
+    vec3 instanceRotationSine = sin(instanceRotation);
+
+    mat4 rx = mat4( 1.0,  0.0,  0.0, 0.0,
+                    0.0,  instanceRotationCosine.x,  instanceRotationSine.x, 0.0,
+                    0.0, -instanceRotationSine.x,  instanceRotationCosine.x, 0.0,
+                    0.0,  0.0,  0.0, 1.0 );
+
+    mat4 ry = mat4( instanceRotationCosine.y, 0.0, -instanceRotationSine.y, 0.0,
+                    0.0, 1.0,  0.0, 0.0,
+                    instanceRotationSine.y, 0.0,  instanceRotationCosine.y, 0.0,
+                    0.0, 0.0,  0.0, 1.0 );
+
+
+    mat4 rz = mat4( instanceRotationCosine.z, -instanceRotationSine.z, 0.0, 0.0,
+                    instanceRotationSine.z,  instanceRotationCosine.z, 0.0, 0.0,
+                    0.0,  0.0, 1.0, 0.0,
+                    0.0,  0.0, 0.0, 1.0 );
+
+    // Compute the Displacement factor of the Instance Transformation
+    // (ALL Matrices specified in column-major order.)
+    mat4 translation = mat4( 1.0,  0.0,  0.0,  0.0,
+                             0.0,  1.0,  0.0,  0.0,
+                             0.0,  0.0,  1.0,  0.0,
+                             instanceDisplacement.x,  instanceDisplacement.y,  instanceDisplacement.z,  1.0 );
+
+    // Calculate the Vertex Position and Normal in World Space
+    // (Last specified, first applied.)
+    vec4 worldPosition = translation
+                       * rz * ry * rx
+                       * scale
+                       * vPosition;
+
+    vec4 worldNormal = rz * ry * rx * vNormal;
+
+    // Vector from Vertex to Light source (supporting directional light source)
+    float squareDistance1 = 0.0;
+    vec3 L1;
+    if (lightPosition1.w == 0.0)
+    {
+        L1 = normalize(lightPosition1.xyz);
+    }
+    else
+    {
+        L1 = (lightPosition1.xyz / lightPosition1.w) - (worldPosition.xyz / worldPosition.w);
+        squareDistance1 = dot(L1, L1);
+        L1 = normalize(L1);
+    }
+
+    float squareDistance2 = 0.0;
+    vec3 L2;
+    if (lightPosition2.w == 0.0)
+    {
+        L2 = normalize(lightPosition2.xyz);
+    }
+    else
+    {
+        L2 = (lightPosition2.xyz / lightPosition2.w) - (worldPosition.xyz / worldPosition.w);
+        squareDistance2 = dot(L2, L2);
+        L2 = normalize(L2);
+    }
+
+    // Vector from Vertex to Viewer (eye)
+    vec3 E = normalize((viewEye.xyz / viewEye.w) - (worldPosition.xyz / worldPosition.w));
+
+    // Normal Vector at Vertex
+    vec3 N = normalize(worldNormal.xyz);
+
+    // Calculate Lighting
+    vec4 colour1 = calculateLighting(squareDistance1, N, L1, E,
+                                     blinnSpecular,
+                                     lightAmbient1, lightDiffuse1, lightSpecular1, lightAttenuation1,
+                                     materialAmbient, materialDiffuse, materialSpecular, materialShininess);
+
+    vec4 colour2 = calculateLighting(squareDistance2, N, L2, E,
+                                     blinnSpecular,
+                                     lightAmbient2, lightDiffuse2, lightSpecular2, lightAttenuation2,
+                                     materialAmbient, materialDiffuse, materialSpecular, materialShininess);
+
+    fColour = colour1 + colour2;
+
+    // Calculate the Model-View Matrix
+    vec3 viewUp = vec3(0.0, 1.0, 0.0);
+    mat4 modelViewMatrix = lookAt(viewEye, viewAt, viewUp);
+
+    // Translate the World-Position to Clip Coordinates
+    // (Last specified, first applied.)
+    gl_Position = projectionMatrix * modelViewMatrix * worldPosition;
+}
+</script>
+<script id="fs-shared" type="x-shader/x-fragment">
+precision mediump float;
+</script>
+<script id="fs-vertex-lighting" type="x-shader/x-fragment">
+varying vec4 fColour;
+void main()
+{
+    gl_FragColor = fColour;
+}
+</script>
+<script id="vs-fragment-lighting" type="x-shader/x-vertex">
+attribute vec4 vPosition;
+attribute vec4 vNormal;
+
+// Model-View and Projection Parameters
+uniform vec4 viewEye;
+uniform vec4 viewAt;
+uniform mat4 projectionMatrix;
+
+// Instance Parameters
+uniform float instanceScale;
+uniform vec3 instanceRotation;
+uniform vec3 instanceDisplacement;
+
+// Light Parameters
+uniform vec4 lightPosition1;
+uniform vec4 lightPosition2;
+
+// Fragment Lighting
+varying vec3 N, E;
+varying float squareDistance1;
+varying vec3 L1;
+varying float squareDistance2;
+varying vec3 L2;
+
+// Vertex Shader Entry Point
+void main()
+{
+    // Compute the Scale factor of the Instance Transformation
+    // (ALL Matrices specified in column-major order.)
+    mat4 scale = mat4( instanceScale,  0.0,  0.0,  0.0,
+                       0.0,  instanceScale,  0.0,  0.0,
+                       0.0,  0.0,  instanceScale,  0.0,
+                       0.0,  0.0,  0.0,  1.0 );
+
+    // Compute the Rotation factor of the Instance Transformation
+    vec3 instanceRotationCosine = cos(instanceRotation);
+    vec3 instanceRotationSine = sin(instanceRotation);
+
+    mat4 rx = mat4( 1.0,  0.0,  0.0, 0.0,
+                    0.0,  instanceRotationCosine.x,  instanceRotationSine.x, 0.0,
+                    0.0, -instanceRotationSine.x,  instanceRotationCosine.x, 0.0,
+                    0.0,  0.0,  0.0, 1.0 );
+
+    mat4 ry = mat4( instanceRotationCosine.y, 0.0, -instanceRotationSine.y, 0.0,
+                    0.0, 1.0,  0.0, 0.0,
+                    instanceRotationSine.y, 0.0,  instanceRotationCosine.y, 0.0,
+                    0.0, 0.0,  0.0, 1.0 );
+
+
+    mat4 rz = mat4( instanceRotationCosine.z, -instanceRotationSine.z, 0.0, 0.0,
+                    instanceRotationSine.z,  instanceRotationCosine.z, 0.0, 0.0,
+                    0.0,  0.0, 1.0, 0.0,
+                    0.0,  0.0, 0.0, 1.0 );
+
+    // Compute the Displacement factor of the Instance Transformation
+    // (ALL Matrices specified in column-major order.)
+    mat4 translation = mat4( 1.0,  0.0,  0.0,  0.0,
+                             0.0,  1.0,  0.0,  0.0,
+                             0.0,  0.0,  1.0,  0.0,
+                             instanceDisplacement.x,  instanceDisplacement.y,  instanceDisplacement.z,  1.0 );
+
+    // Calculate the Vertex Position and Normal in World Space
+    // (Last specified, first applied.)
+    vec4 worldPosition = translation
+                       * rz * ry * rx
+                       * scale
+                       * vPosition;
+
+    vec4 worldNormal = rz * ry * rx * vNormal;
+
+    // Vector from Vertex to Light source (supporting directional light source)
+    if (lightPosition1.w == 0.0)
+    {
+        squareDistance1 = 0.0;
+        L1 = normalize(lightPosition1.xyz);
+    }
+    else
+    {
+        L1 = (lightPosition1.xyz / lightPosition1.w) - (worldPosition.xyz / worldPosition.w);
+        squareDistance1 = dot(L1, L1);
+        L1 = normalize(L1);
+    }
+
+    // Vector from Vertex to Light source (supporting directional light source)
+    if (lightPosition2.w == 0.0)
+    {
+        squareDistance2 = 0.0;
+        L2 = normalize(lightPosition2.xyz);
+    }
+    else
+    {
+        L2 = (lightPosition2.xyz / lightPosition2.w) - (worldPosition.xyz / worldPosition.w);
+        squareDistance2 = dot(L2, L2);
+        L2 = normalize(L2);
+    }
+
+    // Vector from Vertex to Viewer (eye)
+    E = normalize((viewEye.xyz / viewEye.w) - (worldPosition.xyz / worldPosition.w));
+
+    // Normal Vector at Vertex
+    N = normalize(worldNormal.xyz);
+
+    // Calculate the Model-View Matrix
+    vec3 viewUp = vec3(0.0, 1.0, 0.0);
+    mat4 modelViewMatrix = lookAt(viewEye, viewAt, viewUp);
+
+    // Translate the World-Position to Clip Coordinates
+    // (Last specified, first applied.)
+    gl_Position = projectionMatrix * modelViewMatrix * worldPosition;
+}
+</script>
+<script id="fs-fragment-lighting" type="x-shader/x-fragment">
+// Fragment Lighting
+varying vec3 N, E;
+varying float squareDistance1;
+varying vec3 L1;
+varying float squareDistance2;
+varying vec3 L2;
+
+// Lighting Calculation Options
+uniform int blinnSpecular;
+
+// Light Parameters (Light 1)
+uniform vec4 lightAmbient1;
+uniform vec4 lightDiffuse1;
+uniform vec4 lightSpecular1;
+uniform vec3 lightAttenuation1;
+
+// Light Parameters (Light 2)
+uniform vec4 lightAmbient2;
+uniform vec4 lightDiffuse2;
+uniform vec4 lightSpecular2;
+uniform vec3 lightAttenuation2;
+
+// Material Parameters
+uniform vec4 materialAmbient;
+uniform vec4 materialDiffuse;
+uniform vec4 materialSpecular;
+uniform float materialShininess;
+
+void main()
+{
+    // Calculate Lighting
+    vec4 colour1 = calculateLighting(squareDistance1, N, L1, E,
+                                     blinnSpecular,
+                                     lightAmbient1, lightDiffuse1, lightSpecular1, lightAttenuation1,
+                                     materialAmbient, materialDiffuse, materialSpecular, materialShininess);
+
+    vec4 colour2 = calculateLighting(squareDistance2, N, L2, E,
+                                     blinnSpecular,
+                                     lightAmbient2, lightDiffuse2, lightSpecular2, lightAttenuation2,
+                                     materialAmbient, materialDiffuse, materialSpecular, materialShininess);
+
+    gl_FragColor = colour1 + colour2;
+}
+</script>
+<script type="text/javascript" src="../common/jquery-2.1.4.min.js"></script>
+<script type="text/javascript" src="../common/jquery-ui.min.js"></script>
+<script type="text/javascript" src="../angelCommon/webgl-utils.js"></script>
+<script type="text/javascript" src="../angelCommon/initShaders.js"></script>
+<script type="text/javascript" src="../angelCommon/MV.js"></script>
+<script type="text/javascript" src="../assignmentUtils.js"></script>
+<script type="text/javascript" src="assignment4.js"></script>
+</head>
+<body>
+    <canvas id="gl-canvas" width="512" height="512">
+    Your browser does not support the HTML5 canvas element.
+    </canvas>
+    <div id="userControls">
+        <p>Meshes with True Normals:</p>
+        <table>
+            <tr>
+                <td><button id="addSphereButton">Sphere</button></td>
+                <td><button id="addConeButton">Cone</button></td>
+                <td><button id="addCylinderButton">Cylinder</button></td>
+            </tr>
+        </table>
+
+        <div id="lightingOptions">
+            <p>Lighting Mode:</p>
+            <table>
+                <tr>
+                    <td><input type="radio" name="lightingRadio" value="fragment" checked="checked">Fragment</input></td>
+                    <td><input type="radio" name="lightingRadio" value="vertex">Vertex</input></td>
+                </tr>
+            </table>
+
+            <p>Specular Component:</p>
+            <table>
+                <tr>
+                    <td><input type="radio" name="specularRadio" value="blinn" checked="checked">Blinn</input></td>
+                    <td><input type="radio" name="specularRadio" value="phong">Phong</input></td>
+                </tr>
+            </table>
+
+            <p>Light Sources:</p>
+            <table>
+                <tr>
+                    <td><input type="checkbox" name="light1Check" value="light1" checked="checked">Light 1</input></td>
+                    <td><input type="checkbox" name="light2Check" value="light2" checked="checked">Light 2</input></td>
+                </tr>
+            </table>
+        </div>
+
+        <div id="meshManipulation" style="display: none;">
+            <p>Mesh Scale:</p>
+            <table>
+                <tr>
+                    <td>&nbsp;</td>
+                    <!--<td><input id="scaleRange" type="range" min="0.5" max="10" step="0.5" value="1" /></td>-->
+                    <td><div id="scaleRange"></div></td>
+                </tr>
+            </table>
+
+            <p>Mesh Rotation:</p>
+            <table>
+                <tr>
+                    <td>X</td>
+                    <td><div id="rotationXRange"></div></td>
+                </tr>
+                <tr>
+                    <td>Y</td>
+                    <td><div id="rotationYRange"></div></td>
+                </tr>
+                <tr>
+                    <td>Z</td>
+                    <td><div id="rotationZRange"></div></td>
+                </tr>
+            </table>
+
+            <p>Mesh Position:</p>
+            <table>
+                <tr>
+                    <td>X</td>
+                    <td><div id="displacementXRange"></div></td>
+                </tr>
+                <tr>
+                    <td>Y</td>
+                    <td><div id="displacementYRange"></div></td>
+                </tr>
+                <tr>
+                    <td>Z</td>
+                    <td><div id="displacementZRange"></div></td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <div id="developerComments">
+        <p>Add new meshes to the world using the buttons at the top of the side-bar on the right hand side. The most recently added mesh may be manipulated using the other controls found therein.</p>
+        <p>The scene features two light sources, orbiting the origin. They can be turned on and off individually. Each light source has a unique ambient, diffuse and specular component.<p>
+        <p>Distance attenuation is implemented and can be best seen by moving the subject mesh away from the camera.</p>
+        <p>Additionally, shaders implementing fragment level lighting or vertex lighting can be selected and either Phong's original specular term or Blinn's modified specular term may be used for the specular highlight.</p>
+    </div>
+</body>
+</html>

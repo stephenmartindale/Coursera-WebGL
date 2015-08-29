@@ -1,0 +1,44 @@
+html, body {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background-color: #222222;
+    color: #9f9f9f;
+    font-family: sans-serif;
+}
+
+canvas {
+    border-bottom: 1px dotted #000000;
+    border-right: 1px dotted #000000;
+}
+
+div#userControls {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 519px;
+    right: 6px;
+}
+div#userControls p {
+    margin-bottom: 0;
+}
+div#userControls table {
+    width: 100%;
+}
+
+div#meshManipulation table tr td:first-child {
+    width: 22px;
+}
+div#meshManipulation table tr td:last-child {
+    padding: 6px 18px;
+}
+
+div#developerComments {
+    position: absolute;
+    top: 513px;
+    bottom: 0;
+    left: 0;
+    right: auto;
+    width: 500px;
+    padding: 6px;
+}
