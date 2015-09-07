@@ -77,4 +77,87 @@ var assignmentUtils = {
         return (iterations == 1)? output : assignmentUtils.tessellate(output, iterations - 1);
     },
 
+    // Initialises a Texture Object
+    initialiseTexture: function (width, height, bitmap)
+    {
+        var texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
+
+        gl.generateMipmap(gl.TEXTURE_2D);
+
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+
+        return texture;
+    },
+
+    // Initialises a Texture Object from a HTML DOM IMAGE
+    initialiseTextureDOM: function (image)
+    {
+        var texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+
+        gl.generateMipmap(gl.TEXTURE_2D);
+
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+
+        return texture;
+    },
+
+    // Bind a Texture to a Texture-Unit and Shader Uniform Variable
+    bindTexture: function(textureUnit, texture, uniformIndex)
+    {
+        var textureUnitIndex = -1;
+        switch (textureUnit)
+        {
+            case gl.TEXTURE0: textureUnitIndex = 0; break;
+            case gl.TEXTURE1: textureUnitIndex = 1; break;
+            case gl.TEXTURE2: textureUnitIndex = 2; break;
+            case gl.TEXTURE3: textureUnitIndex = 3; break;
+            case gl.TEXTURE4: textureUnitIndex = 4; break;
+            case gl.TEXTURE5: textureUnitIndex = 5; break;
+            case gl.TEXTURE6: textureUnitIndex = 6; break;
+            case gl.TEXTURE7: textureUnitIndex = 7; break;
+            case gl.TEXTURE8: textureUnitIndex = 8; break;
+            case gl.TEXTURE9: textureUnitIndex = 9; break;
+            case gl.TEXTURE10: textureUnitIndex = 10; break;
+            case gl.TEXTURE11: textureUnitIndex = 11; break;
+            case gl.TEXTURE12: textureUnitIndex = 12; break;
+            case gl.TEXTURE13: textureUnitIndex = 13; break;
+            case gl.TEXTURE14: textureUnitIndex = 14; break;
+            case gl.TEXTURE15: textureUnitIndex = 15; break;
+            case gl.TEXTURE16: textureUnitIndex = 16; break;
+            case gl.TEXTURE17: textureUnitIndex = 17; break;
+            case gl.TEXTURE18: textureUnitIndex = 18; break;
+            case gl.TEXTURE19: textureUnitIndex = 19; break;
+            case gl.TEXTURE20: textureUnitIndex = 20; break;
+            case gl.TEXTURE21: textureUnitIndex = 21; break;
+            case gl.TEXTURE22: textureUnitIndex = 22; break;
+            case gl.TEXTURE23: textureUnitIndex = 23; break;
+            case gl.TEXTURE24: textureUnitIndex = 24; break;
+            case gl.TEXTURE25: textureUnitIndex = 25; break;
+            case gl.TEXTURE26: textureUnitIndex = 26; break;
+            case gl.TEXTURE27: textureUnitIndex = 27; break;
+            case gl.TEXTURE28: textureUnitIndex = 28; break;
+            case gl.TEXTURE29: textureUnitIndex = 29; break;
+            case gl.TEXTURE30: textureUnitIndex = 30; break;
+            case gl.TEXTURE31: textureUnitIndex = 31; break;
+            default: throw "Texture Unit is not a valid WebGL Texture Unit";
+        }
+
+        gl.activeTexture(textureUnit);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.uniform1i(uniformIndex, textureUnitIndex);
+    },
 };
